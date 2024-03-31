@@ -1,47 +1,73 @@
 "use client";
-import { Button, TextField } from "@radix-ui/themes";
+import { Button, Callout, Text, TextField } from "@radix-ui/themes";
 import SimpleMDE from "react-simplemde-editor";
 import "easymde/dist/easymde.min.css";
 
 import { useForm, Controller } from "react-hook-form";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-interface NewIssueForm {
-    title: string;
-    description: string;
-}
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createIssueSchema } from "@/app/Validations/validationSchemas";
+
+import z from "zod";
+
+type IssueForm = z.infer<typeof createIssueSchema>;
 
 const NewIssuePage = () => {
-    const { register, control, handleSubmit } = useForm<NewIssueForm>();
+    const {
+        register,
+        control,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<IssueForm>({
+        resolver: zodResolver(createIssueSchema),
+    });
     const router = useRouter();
+
+    const [error, setError] = useState("");
     return (
-        <form
-            className="max-w-xl space-y-3"
-            onSubmit={handleSubmit((data) =>
-                axios
-                    .post("/api/issues", data)
-                    .then(() => {
-                        router.push("/issues");
-                    })
-                    .catch(() => {
-                        alert("Failed to create issue!");
-                    })
+        <div>
+            {error && (
+                <Callout.Root>
+                    <Callout.Text>{error}</Callout.Text>
+                </Callout.Root>
             )}
-        >
-            <TextField.Root
-                placeholder="Title"
-                {...register("title")}
-            ></TextField.Root>
-            <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                    <SimpleMDE placeholder="Description" {...field} />
+            <form
+                className="max-w-xl space-y-3"
+                onSubmit={handleSubmit(async (data) => {
+                    try {
+                        await axios.post("/api/issues", data);
+                        router.push("/issues");
+                    } catch (error) {}
+                })}
+            >
+                <TextField.Root
+                    placeholder="Title"
+                    {...register("title")}
+                ></TextField.Root>
+                {errors.title && (
+                    <Text color="red" as="p">
+                        {errors.title.message}
+                    </Text>
                 )}
-            />
-            <Button>Submit New Issue</Button>
-        </form>
+                <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                        <SimpleMDE placeholder="Description" {...field} />
+                    )}
+                />
+                {errors.description && (
+                    <Text color="red" as="p">
+                        {errors.description.message}
+                    </Text>
+                )}
+
+                <Button>Submit New Issue</Button>
+            </form>
+        </div>
     );
 };
 
